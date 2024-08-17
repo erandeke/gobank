@@ -2,9 +2,11 @@ package routes
 
 import (
 	"encoding/json"
+	"fmt"
 	"gobank/storage"
 	"gobank/types"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -21,12 +23,14 @@ func NewServer(listenAddr string, store storage.Store) *Server {
 	}
 }
 
-func (s *Server) routes() {
+func (s *Server) Run() {
 	routes := mux.NewRouter()
 
 	routes.HandleFunc("/login", s.handleLogin).Methods("GET")
 	routes.HandleFunc("/getaccount", makeHTTPHandleFunc(s.GetAccount)).Methods("GET")
+	routes.HandleFunc("/getaccount/{id}", makeHTTPHandleFunc(s.GetAccountById)).Methods("GET")
 	routes.HandleFunc("/createAccount", makeHTTPHandleFunc(s.CreateAccount)).Methods("POST")
+	routes.HandleFunc("/deleteAccount/{id}", makeHTTPHandleFunc(s.DeleteAccount)).Methods("POST")
 }
 
 func (s *Server) GetAccount(w http.ResponseWriter, r *http.Request) error {
@@ -54,13 +58,38 @@ func (s *Server) CreateAccount(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = s.storage.CreateNewAccount(account)
+	err = s.storage.CreateAccount(account)
 	if err != nil {
 		return err
 	}
 
 	return WriteJson(w, http.StatusOK, account)
 
+}
+
+func (s *Server) GetAccountById(w http.ResponseWriter, r *http.Request) error {
+	id, err := getID(r)
+	if err != nil {
+		fmt.Println("Error in getting the Id from the request")
+		return err
+	}
+	account, err := s.storage.GetAccountById(id)
+	if err != nil {
+		return err
+	}
+	return WriteJson(w, http.StatusOK, account)
+}
+
+func (s *Server) DeleteAccount(w http.ResponseWriter, r *http.Request) error {
+	id, err := getID(r)
+	if err != nil {
+		return err
+	}
+	err = s.storage.DeleteAccount(id)
+	if err != nil {
+		return err
+	}
+	return WriteJson(w, http.StatusOK, map[string]int{"deleted": id})
 }
 
 func WriteJson(w http.ResponseWriter, status int, v any) error {
@@ -77,4 +106,13 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 			WriteJson(w, http.StatusBadRequest, err)
 		}
 	}
+}
+
+func getID(r *http.Request) (int, error) {
+	idstr := mux.Vars(r)["id"]
+	idInt, err := strconv.Atoi(idstr)
+	if err != nil {
+		return idInt, fmt.Errorf("invalid id given %s", idstr)
+	}
+	return idInt, nil
 }

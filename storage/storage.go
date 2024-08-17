@@ -2,15 +2,16 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"gobank/types"
 )
 
 type Store interface {
-	CreateNewAccount(*types.Account) error
-	DeleteAccount(id interface{}) error
-	UpdateAccount(*types.Account) (*types.Account, error)
+	CreateAccount(*types.Account) error
+	DeleteAccount(int) error
+	//UpdateAccount(*types.Account) (*types.Account, error)
 	GetAccounts() ([]*types.Account, error)
-	GetACcountsById(id int) (*types.Account, error)
+	GetAccountById(id int) (*types.Account, error)
 }
 
 type PostgresStore struct {
@@ -80,11 +81,11 @@ func (s *PostgresStore) CreateAccount(acc *types.Account) error {
 
 //update account
 
-func (s *PostgresStore) UpdateAccount(acc *types.Account) error {
+//func (s *PostgresStore) UpdateAccount(acc *types.Account) error {
 
-	return nil
+//	return nil
 
-}
+//}
 
 //delete account
 
@@ -109,6 +110,7 @@ func (s *PostgresStore) GetAccounts() ([]*types.Account, error) {
 			return nil, err
 		}
 		accounts = append(accounts, account)
+
 	}
 
 	return accounts, nil
@@ -132,3 +134,15 @@ func scanIntoNextRow(rows *sql.Rows) (*types.Account, error) {
 }
 
 //getaccountbyId
+
+func (s *PostgresStore) GetAccountById(id int) (*types.Account, error) {
+	query := `select * from account where id=$1`
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		return scanIntoNextRow(rows)
+	}
+	return nil, fmt.Errorf("account %d not found", id)
+}
